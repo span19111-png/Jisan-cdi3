@@ -1,0 +1,579 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Safely retrieve Blox Fruits remote
+local remote = nil
+local function getCommF()
+    if remote then return remote end
+    pcall(function()
+        local remotesFolder = ReplicatedStorage:WaitForChild("Remotes", 2)
+        if remotesFolder then
+            remote = remotesFolder:WaitForChild("CommF_", 2)
+        end
+    end)
+    return remote
+end
+getCommF()
+
+-- Safe parent container for Delta / mobile executors
+local function getSafeGuiParent()
+    if gethui then
+        return gethui()
+    elseif syn and syn.protect_gui then
+        local gui = Instance.new("Folder")
+        syn.protect_gui(gui)
+        gui.Parent = game:GetService("CoreGui")
+        return gui
+    else
+        local success, coreGui = pcall(function()
+            return game:GetService("CoreGui")
+        end)
+        if success and coreGui then
+            return coreGui
+        end
+    end
+    return playerGui
+end
+
+local parentContainer = getSafeGuiParent()
+
+local existing = parentContainer:FindFirstChild("Nero_HUB")
+if existing then
+    existing:Destroy()
+end
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "Nero_HUB"
+gui.ResetOnSpawn = false
+gui.DisplayOrder = 999
+gui.Parent = parentContainer
+
+-- UNIVERSAL TOUCH & MOUSE DRAGGABLE HELPER
+local function makeDraggable(handle, target)
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = target.Position
+        end
+    end)
+
+    handle.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            target.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+-- LIVE FPS COUNTER HELPER
+local function attachFpsCounter(label)
+    local lastTime = tick()
+    local frames = 0
+    RunService.RenderStepped:Connect(function()
+        frames = frames + 1
+        if tick() - lastTime >= 1 then
+            label.Text = tostring(frames) .. " FPS"
+            frames = 0
+            lastTime = tick()
+        end
+    end)
+end
+
+-- PULSING GLOW ANIMATION HELPER
+local function startGlowAnimation(stroke, minColor, maxColor, speed)
+    task.spawn(function()
+        local tweenInfo = TweenInfo.new(speed or 1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+        local tween = TweenService:Create(stroke, tweenInfo, {
+            Color = maxColor or Color3.fromRGB(255, 65, 80)
+        })
+        stroke.Color = minColor or Color3.fromRGB(160, 25, 35)
+        tween:Play()
+    end)
+end
+
+-- ========================================================
+-- FLOATING ROUND TOGGLE BUTTON (NERO)
+-- ========================================================
+local floatBtn = Instance.new("TextButton")
+floatBtn.Name = "NeroFloatingButton"
+floatBtn.Size = UDim2.fromOffset(48, 48)
+floatBtn.Position = UDim2.new(0, 15, 0.45, 0)
+floatBtn.BackgroundColor3 = Color3.fromRGB(15, 17, 20)
+floatBtn.BorderSizePixel = 0
+floatBtn.Text = "Nero"
+floatBtn.TextColor3 = Color3.fromRGB(240, 240, 240)
+floatBtn.TextSize = 12
+floatBtn.Font = Enum.Font.GothamBold
+floatBtn.Visible = false
+floatBtn.Active = true
+floatBtn.ZIndex = 500
+floatBtn.Parent = gui
+
+local floatCorner = Instance.new("UICorner")
+floatCorner.CornerRadius = UDim.new(1, 0)
+floatCorner.Parent = floatBtn
+
+local floatStroke = Instance.new("UIStroke")
+floatStroke.Color = Color3.fromRGB(220, 45, 55)
+floatStroke.Thickness = 2
+floatStroke.Parent = floatBtn
+
+startGlowAnimation(floatStroke, Color3.fromRGB(150, 20, 30), Color3.fromRGB(255, 80, 95), 1.2)
+makeDraggable(floatBtn, floatBtn)
+
+-- ========================================================
+-- TOP NOTIFICATION BANNER
+-- ========================================================
+local banner = Instance.new("Frame")
+banner.Size = UDim2.fromOffset(280, 36)
+banner.Position = UDim2.new(0.5, -140, 0, -50)
+banner.BackgroundColor3 = Color3.fromRGB(15, 17, 20)
+banner.BorderSizePixel = 0
+banner.Visible = false
+banner.ZIndex = 300
+banner.Parent = gui
+
+local bannerCorner = Instance.new("UICorner")
+bannerCorner.CornerRadius = UDim.new(0, 10)
+bannerCorner.Parent = banner
+
+local bannerStroke = Instance.new("UIStroke")
+bannerStroke.Color = Color3.fromRGB(220, 45, 55)
+bannerStroke.Thickness = 1.5
+bannerStroke.Parent = banner
+
+startGlowAnimation(bannerStroke, Color3.fromRGB(160, 25, 35), Color3.fromRGB(255, 60, 75), 1.0)
+
+local bannerIcon = Instance.new("ImageLabel")
+bannerIcon.Size = UDim2.fromOffset(26, 26)
+bannerIcon.Position = UDim2.fromOffset(6, 5)
+bannerIcon.BackgroundColor3 = Color3.fromRGB(25, 28, 32)
+bannerIcon.Image = "rbxassetid://10849911875"
+bannerIcon.ZIndex = 301
+bannerIcon.Parent = banner
+
+local bannerIconCorner = Instance.new("UICorner")
+bannerIconCorner.CornerRadius = UDim.new(0, 6)
+bannerIconCorner.Parent = bannerIcon
+
+local bannerText = Instance.new("TextLabel")
+bannerText.Size = UDim2.new(1, -44, 1, 0)
+bannerText.Position = UDim2.fromOffset(40, 0)
+bannerText.BackgroundTransparency = 1
+bannerText.Text = ""
+bannerText.TextColor3 = Color3.fromRGB(235, 235, 235)
+bannerText.TextSize = 10
+bannerText.Font = Enum.Font.GothamMedium
+bannerText.TextXAlignment = Enum.TextXAlignment.Left
+bannerText.ZIndex = 301
+bannerText.Parent = banner
+
+local bannerTween = nil
+local function showBanner(msg, isError)
+    bannerText.Text = msg
+    if isError then
+        bannerText.TextColor3 = Color3.fromRGB(255, 90, 90)
+    else
+        bannerText.TextColor3 = Color3.fromRGB(144, 238, 144)
+    end
+
+    banner.Visible = true
+    if bannerTween then bannerTween:Cancel() end
+
+    bannerTween = TweenService:Create(banner, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Position = UDim2.new(0.5, -140, 0, 16)
+    })
+    bannerTween:Play()
+
+    task.delay(3, function()
+        if banner.Position.Y.Offset > 0 then
+            local tweenOut = TweenService:Create(banner, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                Position = UDim2.new(0.5, -140, 0, -50)
+            })
+            tweenOut:Play()
+            tweenOut.Completed:Connect(function()
+                if banner.Position.Y.Offset <= -50 then
+                    banner.Visible = false
+                end
+            end)
+        end
+    end)
+end
+
+-- ========================================================
+-- RECURSION-SAFE TEXT OBSERVER
+-- ========================================================
+local lastFruitName = ""
+local statusMode = "none"
+local KEYWORD = "fruit added to"
+local isModifyingText = false
+
+local function watchObject(obj)
+    if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+        local function checkText()
+            if isModifyingText then return end
+            local text = string.lower(obj.Text)
+
+            if string.find(text, KEYWORD) or string.find(text, "spawned successfully") or string.find(text, "not avalible") then
+                isModifyingText = true
+                if statusMode == "error" then
+                    local target = "Dragon (west) Is Currently not Avalible."
+                    if obj.Text ~= target then
+                        obj.Text = target
+                        obj.TextColor3 = Color3.fromRGB(255, 80, 80)
+                    end
+                elseif statusMode == "spawn" then
+                    local target = lastFruitName .. " Fruit spawned successfully!"
+                    if obj.Text ~= target then
+                        obj.Text = target
+                        obj.TextColor3 = Color3.fromRGB(144, 238, 144)
+                    end
+                end
+                isModifyingText = false
+            end
+        end
+        checkText()
+        obj:GetPropertyChangedSignal("Text"):Connect(checkText)
+    end
+end
+
+for _, obj in ipairs(playerGui:GetDescendants()) do watchObject(obj) end
+playerGui.DescendantAdded:Connect(watchObject)
+
+-- ========================================================
+-- MAIN PANEL ("Nero Hub")
+-- ========================================================
+local main = Instance.new("Frame")
+main.Size = UDim2.fromOffset(260, 215)
+main.Position = UDim2.new(0.5, -130, 0.45, -107)
+main.BackgroundColor3 = Color3.fromRGB(15, 17, 20)
+main.BorderSizePixel = 0
+main.Active = true
+main.ZIndex = 10
+main.Parent = gui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = main
+
+local mainStroke = Instance.new("UIStroke")
+mainStroke.Thickness = 1.6
+mainStroke.Parent = main
+
+startGlowAnimation(mainStroke, Color3.fromRGB(160, 25, 35), Color3.fromRGB(255, 60, 75), 1.5)
+
+local top = Instance.new("Frame")
+top.Size = UDim2.new(1, 0, 0, 32)
+top.BackgroundTransparency = 1
+top.Active = true
+top.ZIndex = 11
+top.Parent = main
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(0, 100, 1, 0)
+title.Position = UDim2.fromOffset(12, 0)
+title.BackgroundTransparency = 1
+title.Text = "Nero Hub"
+title.TextColor3 = Color3.fromRGB(240, 240, 240)
+title.TextSize = 12
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.ZIndex = 12
+title.Parent = top
+
+local mainFps = Instance.new("TextLabel")
+mainFps.Size = UDim2.new(0, 50, 1, 0)
+mainFps.Position = UDim2.new(1, -95, 0, 0)
+mainFps.BackgroundTransparency = 1
+mainFps.Text = "60 FPS"
+mainFps.TextColor3 = Color3.fromRGB(150, 155, 160)
+mainFps.TextSize = 10
+mainFps.Font = Enum.Font.Gotham
+mainFps.TextXAlignment = Enum.TextXAlignment.Right
+mainFps.ZIndex = 12
+mainFps.Parent = top
+
+attachFpsCounter(mainFps)
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.fromOffset(18, 18)
+closeBtn.Position = UDim2.new(1, -26, 0.5, -9)
+closeBtn.BackgroundTransparency = 1
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(220, 60, 60)
+closeBtn.TextSize = 11
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Active = true
+closeBtn.ZIndex = 12
+closeBtn.Parent = top
+
+makeDraggable(top, main)
+
+-- ========================================================
+-- TRADE STATUS BOX & AUTO PARTNER DETECTOR
+-- ========================================================
+local tradeBox = Instance.new("Frame")
+tradeBox.Size = UDim2.new(1, -24, 0, 48)
+tradeBox.Position = UDim2.fromOffset(12, 34)
+tradeBox.BackgroundColor3 = Color3.fromRGB(20, 23, 27)
+tradeBox.BorderSizePixel = 0
+tradeBox.ZIndex = 11
+tradeBox.Parent = main
+
+local tradeBoxCorner = Instance.new("UICorner")
+tradeBoxCorner.CornerRadius = UDim.new(0, 8)
+tradeBoxCorner.Parent = tradeBox
+
+local tradeBoxStroke = Instance.new("UIStroke")
+tradeBoxStroke.Color = Color3.fromRGB(38, 43, 49)
+tradeBoxStroke.Thickness = 1
+tradeBoxStroke.Parent = tradeBox
+
+local tradeLabel = Instance.new("TextLabel")
+tradeLabel.Size = UDim2.new(1, -55, 1, 0)
+tradeLabel.Position = UDim2.fromOffset(10, 0)
+tradeLabel.BackgroundTransparency = 1
+tradeLabel.Text = "Trading with:\nNone (Sit at trade table)"
+tradeLabel.TextColor3 = Color3.fromRGB(180, 185, 190)
+tradeLabel.TextSize = 10
+tradeLabel.Font = Enum.Font.Gotham
+tradeLabel.TextXAlignment = Enum.TextXAlignment.Left
+tradeLabel.TextYAlignment = Enum.TextYAlignment.Center
+tradeLabel.ZIndex = 12
+tradeLabel.Parent = tradeBox
+
+local tradeAvatar = Instance.new("ImageLabel")
+tradeAvatar.Size = UDim2.fromOffset(36, 36)
+tradeAvatar.Position = UDim2.new(1, -44, 0.5, -18)
+tradeAvatar.BackgroundColor3 = Color3.fromRGB(25, 28, 33)
+tradeAvatar.BorderSizePixel = 0
+tradeAvatar.Image = ""
+tradeAvatar.ZIndex = 12
+tradeAvatar.Parent = tradeBox
+
+local tradeAvatarCorner = Instance.new("UICorner")
+tradeAvatarCorner.CornerRadius = UDim.new(1, 0)
+tradeAvatarCorner.Parent = tradeAvatar
+
+local tradeAvatarStroke = Instance.new("UIStroke")
+tradeAvatarStroke.Thickness = 1.8
+tradeAvatarStroke.Parent = tradeAvatar
+
+startGlowAnimation(tradeAvatarStroke, Color3.fromRGB(150, 20, 30), Color3.fromRGB(255, 75, 90), 1.3)
+
+local currentTarget = nil
+
+local function getPartnerFromTradeSeat()
+    local char = player.Character
+    if not char then return nil end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid or not humanoid.SeatPart then return nil end
+
+    local mySeat = humanoid.SeatPart
+    local tableModel = mySeat:FindFirstAncestorOfClass("Model")
+    if not tableModel then return nil end
+
+    for _, seat in ipairs(tableModel:GetDescendants()) do
+        if seat:IsA("Seat") and seat ~= mySeat and seat.Occupant then
+            local oppChar = seat.Occupant.Parent
+            local targetPlayer = Players:GetPlayerFromCharacter(oppChar)
+            if targetPlayer and targetPlayer ~= player then
+                return targetPlayer
+            end
+        end
+    end
+    return nil
+end
+
+local function getPartnerFromTradeGui()
+    for _, g in ipairs(playerGui:GetChildren()) do
+        if g:IsA("ScreenGui") and g.Enabled then
+            for _, d in ipairs(g:GetDescendants()) do
+                if d:IsA("TextLabel") and string.find(string.lower(d.Text), "treasure trade") then
+                    local frame = d.Parent
+                    if frame then
+                        for _, p in ipairs(Players:GetPlayers()) do
+                            if p ~= player then
+                                for _, label in ipairs(frame:GetDescendants()) do
+                                    if label:IsA("TextLabel") and (label.Text == p.Name or label.Text == p.DisplayName) then
+                                        return p
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        local foundPartner = getPartnerFromTradeSeat() or getPartnerFromTradeGui()
+
+        if foundPartner and foundPartner ~= currentTarget then
+            currentTarget = foundPartner
+            tradeLabel.Text = "Trading with:\n" .. foundPartner.DisplayName .. " (@" .. foundPartner.Name .. ")"
+            
+            task.spawn(function()
+                local success, url = pcall(function()
+                    return Players:GetUserThumbnailAsync(
+                        foundPartner.UserId,
+                        Enum.ThumbnailType.HeadShot,
+                        Enum.ThumbnailSize.Size100x100
+                    )
+                end)
+                if success and url then
+                    tradeAvatar.Image = url
+                    tradeAvatar.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                end
+            end)
+        elseif not foundPartner and currentTarget ~= nil then
+            currentTarget = nil
+            tradeLabel.Text = "Trading with:\nNone (Sit at trade table)"
+            tradeAvatar.Image = ""
+            tradeAvatar.BackgroundColor3 = Color3.fromRGB(25, 28, 33)
+        end
+    end
+end)
+
+-- Switches
+local function createToggle(name, yPos)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0, 130, 0, 24)
+    label.Position = UDim2.fromOffset(14, yPos)
+    label.BackgroundTransparency = 1
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(220, 225, 230)
+    label.TextSize = 11
+    label.Font = Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.ZIndex = 12
+    label.Parent = main
+
+    local switchBtn = Instance.new("TextButton")
+    switchBtn.Size = UDim2.fromOffset(36, 18)
+    switchBtn.Position = UDim2.new(1, -50, 0, yPos + 3)
+    switchBtn.BackgroundColor3 = Color3.fromRGB(35, 40, 46)
+    switchBtn.BorderSizePixel = 0
+    switchBtn.Text = ""
+    switchBtn.Active = true
+    switchBtn.ZIndex = 12
+    switchBtn.Parent = main
+
+    local switchCorner = Instance.new("UICorner")
+    switchCorner.CornerRadius = UDim.new(1, 0)
+    switchCorner.Parent = switchBtn
+
+    local knob = Instance.new("Frame")
+    knob.Size = UDim2.fromOffset(14, 14)
+    knob.Position = UDim2.new(0, 2, 0.5, -7)
+    knob.BackgroundColor3 = Color3.fromRGB(160, 165, 170)
+    knob.BorderSizePixel = 0
+    knob.ZIndex = 13
+    knob.Parent = switchBtn
+
+    local knobCorner = Instance.new("UICorner")
+    knobCorner.CornerRadius = UDim.new(1, 0)
+    knobCorner.Parent = knob
+
+    local toggled = false
+    switchBtn.Activated:Connect(function()
+        toggled = not toggled
+        if toggled then
+            TweenService:Create(switchBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(220, 40, 50)}):Play()
+            TweenService:Create(knob, TweenInfo.new(0.2), {Position = UDim2.new(1, -16, 0.5, -7), BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+        else
+            TweenService:Create(switchBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 40, 46)}):Play()
+            TweenService:Create(knob, TweenInfo.new(0.2), {Position = UDim2.new(0, 2, 0.5, -7), BackgroundColor3 = Color3.fromRGB(160, 165, 170)}):Play()
+        end
+    end)
+    return switchBtn
+end
+
+createToggle("Freeze Trade", 92)
+createToggle("Auto Accept", 124)
+
+-- Fruit Spawner launcher button
+local spawnerLabel = Instance.new("TextLabel")
+spawnerLabel.Size = UDim2.new(0, 130, 0, 26)
+spawnerLabel.Position = UDim2.fromOffset(14, 160)
+spawnerLabel.BackgroundTransparency = 1
+spawnerLabel.Text = "Fruit Spawner"
+spawnerLabel.TextColor3 = Color3.fromRGB(220, 225, 230)
+spawnerLabel.TextSize = 11
+spawnerLabel.Font = Enum.Font.Gotham
+spawnerLabel.TextXAlignment = Enum.TextXAlignment.Left
+spawnerLabel.ZIndex = 12
+spawnerLabel.Parent = main
+
+local openSpawnerBtn = Instance.new("TextButton")
+openSpawnerBtn.Size = UDim2.fromOffset(56, 24)
+openSpawnerBtn.Position = UDim2.new(1, -70, 0, 161)
+openSpawnerBtn.BackgroundColor3 = Color3.fromRGB(200, 40, 50)
+openSpawnerBtn.BorderSizePixel = 0
+openSpawnerBtn.Text = "OPEN"
+openSpawnerBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+openSpawnerBtn.TextSize = 10
+openSpawnerBtn.Font = Enum.Font.GothamBold
+openSpawnerBtn.Active = true
+openSpawnerBtn.ZIndex = 12
+openSpawnerBtn.Parent = main
+
+local openCorner = Instance.new("UICorner")
+openCorner.CornerRadius = UDim.new(0, 6)
+openCorner.Parent = openSpawnerBtn
+
+local openStroke = Instance.new("UIStroke")
+openStroke.Thickness = 1
+openStroke.Parent = openSpawnerBtn
+startGlowAnimation(openStroke, Color3.fromRGB(150, 25, 35), Color3.fromRGB(255, 75, 90), 1.2)
+
+-- ========================================================
+-- SECONDARY WINDOW: FRUIT SPAWNER
+-- ========================================================
+local spawnerWin = Instance.new("Frame")
+spawnerWin.Name = "FruitSpawnerWindow"
+spawnerWin.Size = UDim2.fromOffset(240, 140)
+spawnerWin.Position = UDim2.new(0.5, 140, 0.45, -70)
+spawnerWin.BackgroundColor3 = Color3.fromRGB(15, 17, 20)
+spawnerWin.BorderSizePixel = 0
+spawnerWin.Active = true
+spawnerWin.Visible = false
+spawnerWin.ZIndex = 50
+spawnerWin.Parent = gui
+
+local spawnerCorner = Instance.new("UICorner")
+spawnerCorner.CornerRadius = UDim.new(0, 12)
+spawnerCorner.Parent = spawnerWin
+
+local spawnerStroke = Instance.new("UIStroke")
+spawnerStroke.Thickness = 1.6
+spawnerStroke.Parent = spawnerWin
+
+startGlowAnimation(spawnerStroke, Color3.fromRGB(160, 25, 35)
